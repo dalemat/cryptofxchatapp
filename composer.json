@@ -21,7 +21,7 @@
     },
     "extra": {
         "flarum-extension": {
-            "title": "Chat Iframe",
+            "title": "Chat Iframe Extension",
             "category": "feature",
             "icon": {
                 "name": "fas fa-comments",

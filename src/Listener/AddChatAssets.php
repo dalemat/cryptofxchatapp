@@ -16,151 +16,293 @@ class AddChatAssets
     {
         return '
 <script>
+console.log("🚀 Chat Extension Loading...");
+
 document.addEventListener("DOMContentLoaded", function() {
-    setTimeout(function() {
-        addChatToMultipleLocations();
-    }, 1000);
+    console.log("📍 DOM Content Loaded");
     
-    // Re-add on navigation
-    if (typeof app !== "undefined" && app.history) {
-        app.history.register(function() {
-            setTimeout(() => addChatToMultipleLocations(), 500);
-        });
+    // Try multiple times with different delays
+    setTimeout(() => addChatToAllLocations(), 500);
+    setTimeout(() => addChatToAllLocations(), 1000);
+    setTimeout(() => addChatToAllLocations(), 2000);
+    setTimeout(() => addChatToAllLocations(), 3000);
+    
+    // Also try when page fully loads
+    window.addEventListener("load", function() {
+        console.log("📍 Window Loaded");
+        setTimeout(() => addChatToAllLocations(), 500);
+    });
+    
+    // Listen for Flarum route changes
+    if (typeof app !== "undefined" && app.route) {
+        const originalRoute = app.route;
+        app.route = function() {
+            const result = originalRoute.apply(this, arguments);
+            setTimeout(() => addChatToAllLocations(), 1000);
+            return result;
+        };
     }
 });
 
 const ALLOWED_GROUPS = ["Admin", "Mod", "Recognised member"];
 
-function addChatToMultipleLocations() {
-    addChatToHeader();
-    addChatToMobileMenu();
+function addChatToAllLocations() {
+    console.log("🔍 Attempting to add chat to all locations...");
     
-    const isLoggedIn = document.body.classList.contains("loggedIn") || 
-                      document.querySelector(".SessionDropdown");
-    if (isLoggedIn) {
-        addChatToUserMenu();
-    }
+    // Debug: Log all possible header elements
+    console.log("Header elements found:");
+    document.querySelectorAll("[class*=\"Header\"]").forEach(el => {
+        console.log("- " + el.className);
+    });
+    
+    addChatToHeader();
+    addChatToMobile();
+    addChatToAnyContainer();
 }
 
 function addChatToHeader() {
-    const headerSecondary = document.querySelector(".Header-secondary") ||
-                           document.querySelector(".Header-controls");
+    console.log("🔍 Looking for header...");
     
-    if (headerSecondary && !headerSecondary.querySelector(".item-chat-header")) {
+    // Try multiple header selectors
+    const headerSelectors = [
+        ".Header-secondary .Header-controls",
+        ".Header-secondary",
+        ".Header-controls",
+        ".header-secondary",
+        ".header-controls",
+        ".App-header .Header-secondary",
+        ".App-header .Header-controls",
+        "header .Header-secondary",
+        "header .Header-controls",
+        ".Header .Header-secondary",
+        ".Header .Header-controls",
+        "[class*=\"Header-secondary\"]",
+        "[class*=\"Header-controls\"]"
+    ];
+    
+    let headerContainer = null;
+    
+    for (const selector of headerSelectors) {
+        headerContainer = document.querySelector(selector);
+        if (headerContainer) {
+            console.log("✅ Found header container:", selector);
+            break;
+        }
+    }
+    
+    // If no specific container found, try to find any header-like element
+    if (!headerContainer) {
+        const headers = document.querySelectorAll("header, .Header, .header, [class*=\"header\"], [class*=\"Header\"]");
+        console.log("🔍 Found " + headers.length + " header elements");
+        
+        headers.forEach((header, index) => {
+            console.log(`Header ${index}:`, header.className);
+            if (header.querySelector("ul, .nav, .controls") && !headerContainer) {
+                headerContainer = header.querySelector("ul") || header.querySelector(".nav") || header.querySelector(".controls") || header;
+                console.log("✅ Using header element at index", index);
+            }
+        });
+    }
+    
+    if (headerContainer && !headerContainer.querySelector(".item-chat-header")) {
+        console.log("✅ Adding chat to header");
+        
         const chatItem = document.createElement("li");
         chatItem.className = "item-chat item-chat-header";
         chatItem.innerHTML = `
-            <button onclick="checkChatAccess(); return false;" class="Button Button--link header-chat-btn">
+            <button onclick="checkChatAccess(); return false;" class="Button Button--link header-chat-btn" type="button">
                 <i class="icon fas fa-comments Button-icon"></i>
                 <span class="Button-label">💬 Chat</span>
             </button>
         `;
         
-        // Insert before notifications or at the beginning
-        const notifications = headerSecondary.querySelector(".item-notifications");
-        if (notifications) {
-            headerSecondary.insertBefore(chatItem, notifications);
+        // Add to beginning of container
+        if (headerContainer.tagName === "UL") {
+            headerContainer.insertBefore(chatItem, headerContainer.firstChild);
         } else {
-            headerSecondary.insertBefore(chatItem, headerSecondary.firstChild);
+            // Create UL if container is not UL
+            const ul = document.createElement("ul");
+            ul.appendChild(chatItem);
+            headerContainer.appendChild(ul);
         }
         
-        console.log("✅ Chat added to header");
+        console.log("✅ Chat added to header successfully");
+    } else if (!headerContainer) {
+        console.log("❌ No header container found");
+    } else {
+        console.log("ℹ️ Chat already exists in header");
     }
 }
 
-function addChatToUserMenu() {
-    setTimeout(() => {
-        const dropdownTrigger = document.querySelector(".SessionDropdown .Dropdown-toggle");
-        if (dropdownTrigger) {
-            dropdownTrigger.addEventListener("click", function() {
-                setTimeout(() => {
-                    const dropdownMenu = document.querySelector(".SessionDropdown .Dropdown-menu");
-                    if (dropdownMenu && !dropdownMenu.querySelector(".item-chat-user")) {
-                        const chatItem = document.createElement("li");
-                        chatItem.className = "item-chat item-chat-user";
-                        chatItem.innerHTML = `
-                            <a href="#" onclick="checkChatAccess(); return false;" class="chat-dropdown-link">
-                                <i class="icon fas fa-comments"></i>
-                                💬 Community Chat
-                            </a>
-                        `;
-                        
-                        dropdownMenu.insertBefore(chatItem, dropdownMenu.firstChild);
-                        console.log("✅ Chat added to user menu");
-                    }
-                }, 100);
-            });
-        }
-    }, 500);
-}
-
-function addChatToMobileMenu() {
-    // Target the mobile drawer navigation
-    const mobileNav = document.querySelector(".App-drawer .Navigation") ||
-                     document.querySelector(".drawer .Navigation") ||
-                     document.querySelector("[data-drawer] .Navigation");
+function addChatToMobile() {
+    console.log("🔍 Looking for mobile navigation...");
     
-    if (mobileNav && !mobileNav.querySelector(".item-chat-mobile")) {
+    // Try multiple mobile nav selectors
+    const mobileSelectors = [
+        ".App-drawer .Drawer-content",
+        ".Drawer-content",
+        ".drawer-content",
+        ".App-navigation",
+        ".navigation",
+        ".mobile-nav",
+        ".mobile-navigation",
+        ".drawer",
+        ".Drawer",
+        "[class*=\"drawer\"]",
+        "[class*=\"Drawer\"]",
+        ".App-drawer ul",
+        ".Drawer ul"
+    ];
+    
+    let mobileContainer = null;
+    
+    for (const selector of mobileSelectors) {
+        mobileContainer = document.querySelector(selector);
+        if (mobileContainer) {
+            console.log("✅ Found mobile container:", selector);
+            break;
+        }
+    }
+    
+    // Alternative: Look for any navigation-like elements
+    if (!mobileContainer) {
+        const navElements = document.querySelectorAll("nav, .nav, [role=\"navigation\"], [class*=\"nav\"]");
+        console.log("🔍 Found " + navElements.length + " nav elements");
+        
+        navElements.forEach((nav, index) => {
+            console.log(`Nav ${index}:`, nav.className);
+            // Look for one that seems like mobile nav
+            if ((nav.className.includes("drawer") || nav.className.includes("mobile") || nav.querySelector("ul")) && !mobileContainer) {
+                mobileContainer = nav.querySelector("ul") || nav;
+                console.log("✅ Using nav element at index", index);
+            }
+        });
+    }
+    
+    if (mobileContainer && !mobileContainer.querySelector(".item-chat-mobile")) {
+        console.log("✅ Adding chat to mobile nav");
+        
         const chatItem = document.createElement("li");
         chatItem.className = "item-chat item-chat-mobile";
         chatItem.innerHTML = `
-            <a href="#" onclick="checkChatAccess(); return false;" class="mobile-chat-btn hasIcon">
+            <button onclick="checkChatAccess(); return false;" class="hasIcon mobile-chat-btn" type="button">
                 <i class="icon fas fa-comments Button-icon"></i>
                 <span class="mobile-chat-label">💬 Community Chat</span>
-            </a>
+            </button>
         `;
         
-        // Add after "All Discussions" if it exists
-        const allDiscussions = mobileNav.querySelector(".item-allDiscussions") ||
-                              mobileNav.querySelector("[data-route=\\"index\\"]");
-        if (allDiscussions) {
-            allDiscussions.parentNode.insertBefore(chatItem, allDiscussions.nextSibling);
+        // Add to beginning
+        if (mobileContainer.tagName === "UL") {
+            mobileContainer.insertBefore(chatItem, mobileContainer.firstChild);
         } else {
-            mobileNav.insertBefore(chatItem, mobileNav.firstChild);
+            mobileContainer.appendChild(chatItem);
         }
         
-        console.log("✅ Chat added to mobile navigation");
+        console.log("✅ Chat added to mobile nav successfully");
+    } else if (!mobileContainer) {
+        console.log("❌ No mobile container found");
+    } else {
+        console.log("ℹ️ Chat already exists in mobile nav");
+    }
+}
+
+function addChatToAnyContainer() {
+    console.log("🔍 Looking for any suitable container...");
+    
+    // If we still havent found anywhere, add to body as floating button
+    if (!document.querySelector(".item-chat-header") && !document.querySelector(".item-chat-mobile")) {
+        console.log("📍 Adding floating chat button");
+        
+        if (!document.querySelector(".floating-chat-btn")) {
+            const floatingBtn = document.createElement("div");
+            floatingBtn.className = "floating-chat-btn";
+            floatingBtn.innerHTML = `
+                <button onclick="checkChatAccess(); return false;" class="float-chat-button" type="button" title="Community Chat">
+                    <i class="fas fa-comments"></i>
+                    <span>Chat</span>
+                </button>
+            `;
+            
+            document.body.appendChild(floatingBtn);
+            console.log("✅ Floating chat button added");
+        }
+    }
+    
+    // Also try to add to any visible button container
+    const buttonContainers = document.querySelectorAll(".Button, .button, [class*=\"button\"], [class*=\"Button\"]");
+    console.log("🔍 Found " + buttonContainers.length + " button elements");
+    
+    // Try to find a navigation or toolbar to add to
+    const toolbars = document.querySelectorAll(".toolbar, .Toolbar, .controls, .Controls, .actions, .Actions");
+    if (toolbars.length > 0 && !document.querySelector(".item-chat-toolbar")) {
+        console.log("✅ Adding to toolbar");
+        
+        const chatBtn = document.createElement("button");
+        chatBtn.className = "Button item-chat-toolbar toolbar-chat-btn";
+        chatBtn.onclick = function() { checkChatAccess(); return false; };
+        chatBtn.innerHTML = `
+            <i class="icon fas fa-comments"></i>
+            <span>💬 Chat</span>
+        `;
+        
+        toolbars[0].appendChild(chatBtn);
+        console.log("✅ Chat added to toolbar");
     }
 }
 
 function checkChatAccess() {
-    const isLoggedIn = document.body.classList.contains("loggedIn") || 
-                      document.querySelector(".SessionDropdown");
+    console.log("🔐 Checking chat access...");
     
-    if (!isLoggedIn) {
+    const userData = getCurrentUserData();
+    console.log("👤 User data:", userData);
+    
+    if (!userData.isLoggedIn) {
+        console.log("👤 User not logged in - showing guest message");
         showGuestAccessMessage();
         return;
     }
     
-    const userData = getUserData();
-    
-    if (hasAccess(userData)) {
-        openCommunityChat();
-    } else {
+    if (!hasAccess(userData)) {
+        console.log("🚫 User doesnt have access - showing access denied");
         showAccessDeniedMessage();
+        return;
     }
+    
+    console.log("✅ User has access - opening chat");
+    openCommunityChat();
 }
 
-function getUserData() {
-    if (typeof app !== "undefined" && app.session && app.session.user) {
-        const groups = app.session.user.groups();
+function getCurrentUserData() {
+    // Check if user is logged in via multiple methods
+    const isLoggedIn = document.body.classList.contains("loggedIn") || 
+                      document.querySelector(".SessionDropdown") ||
+                      document.querySelector(".loggedIn") ||
+                      (typeof app !== "undefined" && app.session && app.session.user);
+    
+    if (!isLoggedIn) {
+        return { isLoggedIn: false, groups: [] };
+    }
+    
+    // Try to get user data from Flarum app
+    if (typeof app !== "undefined" && app.session && app.session.user && app.session.user.data) {
         return {
-            groups: groups.map(g => ({
-                name: g.nameSingular() || g.name() || g.displayName()
-            })),
-            username: app.session.user.username()
+            isLoggedIn: true,
+            groups: app.session.user.data.relationships.groups.data || [],
+            username: app.session.user.data.attributes.username
         };
     }
     
+    // Fallback: assume admin if admin elements exist
     const isAdmin = document.querySelector(".AdminNav") || 
                    document.body.classList.contains("admin") ||
                    window.location.href.includes("/admin");
     
     if (isAdmin) {
-        return { groups: [{ name: "Admin" }] };
+        return { isLoggedIn: true, groups: [{ attributes: { name: "Admin" } }] };
     }
     
-    return { groups: [] };
+    // Default: logged in but unknown groups
+    return { isLoggedIn: true, groups: [{ attributes: { name: "Member" } }] };
 }
 
 function hasAccess(userData) {
@@ -169,9 +311,10 @@ function hasAccess(userData) {
     }
     
     return userData.groups.some(userGroup => {
+        const groupName = userGroup.attributes ? userGroup.attributes.name : userGroup.name;
         return ALLOWED_GROUPS.some(allowedGroup => {
-            return userGroup.name === allowedGroup ||
-                   (userGroup.name && userGroup.name.toLowerCase() === allowedGroup.toLowerCase());
+            return groupName === allowedGroup ||
+                   (groupName && groupName.toLowerCase() === allowedGroup.toLowerCase());
         });
     });
 }
@@ -234,13 +377,6 @@ function openCommunityChat() {
             </div>
         `;
     };
-    
-    // ESC key to close
-    document.addEventListener("keydown", function(e) {
-        if (e.key === "Escape" && document.getElementById("community-chat-modal")) {
-            closeCommunityChat();
-        }
-    });
 }
 
 function showGuestAccessMessage() {
@@ -359,7 +495,7 @@ function closeAccessDeniedModal() {
     }
 }
 
-// ESC key support for all modals
+// ESC key support
 document.addEventListener("keydown", function(e) {
     if (e.key === "Escape") {
         closeCommunityChat();
@@ -374,12 +510,46 @@ document.addEventListener("keydown", function(e) {
     {
         return '
 <style>
-/* === HEADER POSITIONING === */
+/* === FLOATING CHAT BUTTON (FALLBACK) === */
+.floating-chat-btn {
+    position: fixed !important;
+    bottom: 20px !important;
+    right: 20px !important;
+    z-index: 1000 !important;
+}
+
+.float-chat-button {
+    background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+    color: white !important;
+    border: none !important;
+    padding: 12px 20px !important;
+    border-radius: 25px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 20px rgba(76, 175, 80, 0.4) !important;
+    transition: all 0.3s ease !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+.float-chat-button:hover {
+    background: linear-gradient(135deg, #45a049, #3d8b40) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 25px rgba(76, 175, 80, 0.5) !important;
+}
+
+.float-chat-button i {
+    font-size: 16px !important;
+}
+
+/* === HEADER CHAT BUTTON === */
 .item-chat-header {
     display: flex !important;
     align-items: center !important;
     margin: 0 8px !important;
-    order: -1 !important; /* Position before other items */
+    list-style: none !important;
 }
 
 .header-chat-btn {
@@ -395,6 +565,7 @@ document.addEventListener("keydown", function(e) {
     align-items: center !important;
     gap: 6px !important;
     box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3) !important;
+    cursor: pointer !important;
 }
 
 .header-chat-btn:hover {
@@ -402,15 +573,12 @@ document.addEventListener("keydown", function(e) {
     transform: translateY(-1px) !important;
     box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4) !important;
     color: white !important;
+    text-decoration: none !important;
 }
 
-.header-chat-btn .Button-icon {
-    font-size: 14px !important;
-    margin-right: 0 !important;
-}
-
-/* === MOBILE NAVIGATION === */
+/* === MOBILE CHAT BUTTON === */
 .item-chat-mobile {
+    list-style: none !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
@@ -425,6 +593,10 @@ document.addEventListener("keydown", function(e) {
     font-size: 15px !important;
     font-weight: 500 !important;
     gap: 12px !important;
+    background: none !important;
+    border: none !important;
+    cursor: pointer !important;
+    text-align: left !important;
 }
 
 .mobile-chat-btn:hover {
@@ -433,41 +605,25 @@ document.addEventListener("keydown", function(e) {
     text-decoration: none !important;
 }
 
-.mobile-chat-btn .Button-icon {
-    font-size: 16px !important;
-    width: 20px !important;
-    text-align: center !important;
-}
-
-.mobile-chat-label {
+/* === TOOLBAR CHAT BUTTON === */
+.toolbar-chat-btn {
+    background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+    color: white !important;
+    border: none !important;
+    padding: 8px 15px !important;
+    border-radius: 5px !important;
+    font-size: 13px !important;
     font-weight: 600 !important;
-}
-
-/* === USER DROPDOWN MENU === */
-.item-chat-user {
-    border-bottom: 1px solid #e9ecef !important;
-}
-
-.chat-dropdown-link {
-    display: flex !important;
+    cursor: pointer !important;
+    margin: 0 5px !important;
+    display: inline-flex !important;
     align-items: center !important;
-    gap: 10px !important;
-    padding: 12px 20px !important;
-    color: #333 !important;
-    text-decoration: none !important;
-    font-weight: 500 !important;
-    transition: all 0.3s ease !important;
+    gap: 6px !important;
 }
 
-.chat-dropdown-link:hover {
-    background: linear-gradient(135deg, #f8f9fa, #e9ecef) !important;
-    color: #4CAF50 !important;
+.toolbar-chat-btn:hover {
+    background: linear-gradient(135deg, #45a049, #3d8b40) !important;
     text-decoration: none !important;
-}
-
-.chat-dropdown-link .icon {
-    color: #4CAF50 !important;
-    font-size: 14px !important;
 }
 
 /* === MODAL STYLES === */
@@ -495,6 +651,7 @@ document.addEventListener("keydown", function(e) {
     height: 100% !important;
     background: rgba(0, 0, 0, 0.7) !important;
     backdrop-filter: blur(5px) !important;
+    cursor: pointer !important;
 }
 
 .chat-modal {
@@ -535,7 +692,7 @@ document.addEventListener("keydown", function(e) {
     }
 }
 
-/* === MODAL HEADER === */
+/* === MODAL HEADERS === */
 .chat-header,
 .access-denied-header {
     background: linear-gradient(135deg, #4CAF50, #45a049) !important;
@@ -611,7 +768,7 @@ document.addEventListener("keydown", function(e) {
     line-height: 1.6 !important;
 }
 
-/* === ALLOWED GROUPS LIST === */
+/* === OTHER STYLES === */
 .allowed-groups-list {
     background: linear-gradient(135deg, #e8f5e8, #f0f8f0) !important;
     border: 1px solid #c3e6c3 !important;
@@ -643,11 +800,6 @@ document.addEventListener("keydown", function(e) {
     color: #2e7d32 !important;
 }
 
-.allowed-groups-list li strong {
-    margin-left: 8px !important;
-}
-
-/* === UPGRADE INFO === */
 .upgrade-info {
     background: linear-gradient(135deg, #f3e5f5, #fce4ec) !important;
     border: 1px solid #d1c4e9 !important;
@@ -684,46 +836,10 @@ document.addEventListener("keydown", function(e) {
     padding: 5px 0 !important;
     font-size: 14px !important;
     color: #e65100 !important;
-    display: flex !important;
-    align-items: flex-start !important;
-    gap: 8px !important;
 }
 
-/* === LOADING STATES === */
-.loading-message {
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: center !important;
-    align-items: center !important;
-    height: 100% !important;
-    padding: 40px 20px !important;
-    text-align: center !important;
-}
-
-.spinner {
-    border: 4px solid #f3f3f3 !important;
-    border-top: 4px solid #4CAF50 !important;
-    border-radius: 50% !important;
-    width: 40px !important;
-    height: 40px !important;
-    animation: spin 1s linear infinite !important;
-    margin-bottom: 20px !important;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-#chat-iframe {
-    flex: 1 !important;
-    border: none !important;
-    background: white !important;
-}
-
-/* === BUTTONS === */
 .action-buttons {
-    margin-top: 25px !important;
+    margin: 25px 0 !important;
     display: flex !important;
     gap: 15px !important;
     justify-content: center !important;
@@ -733,28 +849,27 @@ document.addEventListener("keydown", function(e) {
 .btn-primary,
 .btn-secondary {
     padding: 12px 24px !important;
-    text-decoration: none !important;
-    border-radius: 8px !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
-    display: inline-block !important;
-    min-width: 150px !important;
-    font-size: 14px !important;
-    text-align: center !important;
     border: none !important;
+    border-radius: 25px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    text-decoration: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    transition: all 0.3s ease !important;
     cursor: pointer !important;
 }
 
 .btn-primary {
     background: linear-gradient(135deg, #4CAF50, #45a049) !important;
     color: white !important;
-    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3) !important;
 }
 
 .btn-primary:hover {
     background: linear-gradient(135deg, #45a049, #3d8b40) !important;
     transform: translateY(-2px) !important;
-    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4) !important;
+    box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4) !important;
     color: white !important;
     text-decoration: none !important;
 }
@@ -762,18 +877,16 @@ document.addEventListener("keydown", function(e) {
 .btn-secondary {
     background: linear-gradient(135deg, #2196F3, #1976D2) !important;
     color: white !important;
-    box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3) !important;
 }
 
 .btn-secondary:hover {
     background: linear-gradient(135deg, #1976D2, #1565C0) !important;
     transform: translateY(-2px) !important;
-    box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4) !important;
+    box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4) !important;
     color: white !important;
     text-decoration: none !important;
 }
 
-/* === CONTACT INFO === */
 .contact-info {
     margin-top: 25px !important;
     padding-top: 20px !important;
@@ -792,11 +905,65 @@ document.addEventListener("keydown", function(e) {
     text-decoration: underline !important;
 }
 
+/* === LOADING STATES === */
+.loading-message {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 100% !important;
+    padding: 40px !important;
+    text-align: center !important;
+    color: #666 !important;
+}
+
+.spinner {
+    width: 40px !important;
+    height: 40px !important;
+    border: 4px solid #f3f3f3 !important;
+    border-top: 4px solid #4CAF50 !important;
+    border-radius: 50% !important;
+    animation: spin 1s linear infinite !important;
+    margin-bottom: 20px !important;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 /* === MOBILE RESPONSIVE === */
 @media (max-width: 768px) {
-    /* Header adjustments */
-    .item-chat-header {
-        margin: 0 4px !important;
+    .chat-modal,
+    .access-denied-modal {
+        margin: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100% !important;
+        max-height: 100% !important;
+        border-radius: 0 !important;
+    }
+    
+    .floating-chat-btn {
+        bottom: 15px !important;
+        right: 15px !important;
+    }
+    
+    .float-chat-button {
+        padding: 10px 16px !important;
+        font-size: 13px !important;
+    }
+    
+    .action-buttons {
+        flex-direction: column !important;
+        align-items: center !important;
+    }
+    
+    .btn-primary,
+    .btn-secondary {
+        width: 100% !important;
+        max-width: 200px !important;
+        justify-content: center !important;
     }
     
     .header-chat-btn {
@@ -805,28 +972,24 @@ document.addEventListener("keydown", function(e) {
     }
     
     .header-chat-btn .Button-label {
-        display: none !important; /* Hide text on small screens */
+        display: none !important;
     }
     
-    /* Modal adjustments */
-    .chat-modal,
-    .access-denied-modal {
-        width: 95% !important;
-        margin: 10px !important;
-        border-radius: 8px !important;
+    .header-chat-btn .Button-icon {
+        margin: 0 !important;
     }
-    
-    .chat-modal {
-        height: 90% !important;
-        max-height: 90vh !important;
-    }
-    
-    .access-denied-modal {
-        max-height: 90vh !important;
-    }
-    
+}
+
+@media (max-width: 480px) {
     .access-denied-body {
         padding: 20px !important;
+    }
+    
+    .allowed-groups-list,
+    .upgrade-info,
+    .participation-tips {
+        padding: 15px !important;
+        margin: 15px 0 !important;
     }
     
     .chat-header h3,
@@ -834,67 +997,15 @@ document.addEventListener("keydown", function(e) {
         font-size: 16px !important;
     }
     
-    .action-buttons {
-        flex-direction: column !important;
-        align-items: center !important;
-        gap: 10px !important;
-    }
-    
-    .btn-primary,
-    .btn-secondary {
-        width: 100% !important;
-        max-width: 280px !important;
-    }
-    
-    .allowed-groups-list,
-    .upgrade-info {
-        padding: 15px !important;
-        margin: 15px 0 !important;
-    }
-}
-
-/* === VERY SMALL MOBILE === */
-@media (max-width: 480px) {
-    .header-chat-btn .Button-icon {
-        margin-right: 0 !important;
-    }
-    
-    .access-denied-modal {
-        width: 98% !important;
-        margin: 5px !important;
-    }
-    
-    .access-denied-body {
-        padding: 15px !important;
-    }
-    
-    .access-denied-icon,
-    .guest-icon {
-        font-size: 36px !important;
-    }
-    
     .access-denied-body h4 {
         font-size: 18px !important;
-    }
-    
-    .allowed-groups-list,
-    .upgrade-info,
-    .participation-tips {
-        padding: 12px !important;
-    }
-    
-    .btn-primary,
-    .btn-secondary {
-        padding: 10px 15px !important;
-        font-size: 13px !important;
-        min-width: 120px !important;
     }
 }
 
 /* === DARK MODE SUPPORT === */
 @media (prefers-color-scheme: dark) {
-    .access-denied-modal,
-    .chat-modal {
+    .chat-modal,
+    .access-denied-modal {
         background: #2c3e50 !important;
         color: #ecf0f1 !important;
     }
@@ -949,7 +1060,7 @@ document.addEventListener("keydown", function(e) {
     
     .header-chat-btn:hover,
     .mobile-chat-btn:hover,
-    .chat-dropdown-link:hover,
+    .float-chat-button:hover,
     .btn-primary:hover,
     .btn-secondary:hover {
         transform: none !important;
@@ -961,9 +1072,20 @@ document.addEventListener("keydown", function(e) {
     #community-chat-modal,
     #access-denied-modal,
     #guest-access-modal,
-    .item-chat {
+    .item-chat,
+    .floating-chat-btn {
         display: none !important;
     }
+}
+
+/* === FORCE VISIBILITY === */
+.item-chat-header,
+.item-chat-mobile,
+.item-chat-toolbar,
+.floating-chat-btn {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 </style>';
     }

@@ -16,217 +16,180 @@ class AddChatAssets
     {
         return '
 <script>
-console.log("🚀 Chat Extension Loading...");
-
 document.addEventListener("DOMContentLoaded", function() {
-    setTimeout(() => addChatButton(), 1000);
-    setTimeout(() => addChatButton(), 2000);
+    setTimeout(function() {
+        addChatToFooter();
+    }, 1000);
     
-    // Listen for page changes
-    if (typeof app !== "undefined") {
-        const observer = new MutationObserver(() => {
-            setTimeout(() => addChatButton(), 500);
-        });
-        observer.observe(document.body, { childList: true, subtree: true });
-    }
+    // Also try after a longer delay to catch dynamic content
+    setTimeout(function() {
+        addChatToFooter();
+    }, 3000);
 });
 
-const ALLOWED_GROUPS = ["Admin", "Mod", "Recognised member"];
+function addChatToFooter() {
+    // Check if chat link already exists
+    if (document.querySelector(".chat-footer-link")) {
+        return;
+    }
 
-function addChatButton() {
-    // Remove existing buttons to avoid duplicates
-    document.querySelectorAll(".community-chat-btn").forEach(btn => btn.remove());
-    
-    addToDesktopHeader();
-    addToMobileDrawer();
-}
+    // Find the footer container
+    const footer = document.querySelector("footer") || 
+                   document.querySelector(".App-footer") ||
+                   document.querySelector("[class*=\"footer\"]") ||
+                   document.querySelector(".container");
 
-function addToDesktopHeader() {
-    // Find the header controls (where notifications are)
-    const headerControls = document.querySelector(".Header-secondary .Header-controls") || 
-                          document.querySelector(".Header-controls") ||
-                          document.querySelector(".header-controls");
-    
-    if (headerControls) {
-        console.log("✅ Found header controls, adding chat button");
-        
-        const chatBtn = document.createElement("div");
-        chatBtn.className = "community-chat-btn header-chat-wrapper";
-        chatBtn.innerHTML = `
-            <button class="Button Button--link header-chat-btn" onclick="openCommunityChat()">
-                <span class="Button-icon">💬</span>
-                <span class="Button-label">Chat</span>
-            </button>
+    if (footer) {
+        const chatFooter = document.createElement("div");
+        chatFooter.className = "chat-footer-container";
+        chatFooter.innerHTML = `
+            <div class="chat-footer-link" onclick="toggleChatModal()">
+                <span class="chat-icon">💬</span>
+                <span class="chat-text">Community Chat</span>
+            </div>
         `;
         
-        // Insert before the first child (before notifications)
-        headerControls.insertBefore(chatBtn, headerControls.firstChild);
+        footer.appendChild(chatFooter);
+        console.log("Chat link added to footer");
     } else {
-        console.log("❌ Header controls not found");
+        console.log("Footer not found, adding fixed position button");
+        // Fallback: add fixed position button
+        const fixedChat = document.createElement("div");
+        fixedChat.className = "chat-footer-container fixed-chat";
+        fixedChat.innerHTML = `
+            <div class="chat-footer-link" onclick="toggleChatModal()">
+                <span class="chat-icon">💬</span>
+                <span class="chat-text">Chat</span>
+            </div>
+        `;
+        document.body.appendChild(fixedChat);
     }
 }
 
-function addToMobileDrawer() {
-    // Find mobile drawer navigation
-    const mobileNav = document.querySelector(".Drawer-content nav") ||
-                     document.querySelector(".App-drawer nav") ||
-                     document.querySelector("[class*=\"drawer\"] nav") ||
-                     document.querySelector(".IndexPage-nav");
-    
-    if (mobileNav) {
-        console.log("✅ Found mobile navigation, adding chat link");
-        
-        const chatLink = document.createElement("li");
-        chatLink.className = "community-chat-btn mobile-chat-item";
-        chatLink.innerHTML = `
-            <a href="#" class="hasIcon mobile-chat-link" onclick="openCommunityChat(); return false;">
-                <span class="icon">💬</span>
-                Community Chat
-            </a>
-        `;
-        
-        // Add to the top of the navigation
-        const navList = mobileNav.querySelector("ul");
-        if (navList) {
-            navList.insertBefore(chatLink, navList.firstChild);
-        } else {
-            mobileNav.appendChild(chatLink);
-        }
-    } else {
-        console.log("❌ Mobile navigation not found");
-        addFloatingButton(); // Fallback for mobile
-    }
-}
-
-function addFloatingButton() {
-    if (document.querySelector(".floating-chat-btn")) return;
-    
-    const floatingBtn = document.createElement("div");
-    floatingBtn.className = "floating-chat-btn";
-    floatingBtn.innerHTML = `
-        <button class="float-chat-button" onclick="openCommunityChat()" title="Open Community Chat">
-            💬 <span>Chat</span>
-        </button>
-    `;
-    
-    document.body.appendChild(floatingBtn);
-    console.log("✅ Added floating chat button");
-}
-
-function openCommunityChat() {
-    console.log("🎯 Opening community chat...");
-    
+function toggleChatModal() {
+    // Check if user is logged in
     if (typeof app !== "undefined" && app.session && app.session.user) {
+        // Get user groups
         const userGroups = app.session.user.data.attributes.groups || [];
         const userGroupNames = userGroups.map(group => group.nameSingular || group.name || "").filter(Boolean);
         
-        console.log("User groups:", userGroupNames);
-        
+        // Check if user has access (Admin, Mod, or Recognised member)
+        const allowedGroups = ["Admin", "Mod", "Recognised member"];
         const hasAccess = userGroupNames.some(groupName => 
-            ALLOWED_GROUPS.some(allowedGroup => 
+            allowedGroups.some(allowedGroup => 
                 groupName.toLowerCase().includes(allowedGroup.toLowerCase())
             )
         );
         
         if (hasAccess) {
-            showCommunityChat();
+            window.open("https://element.io/app/", "_blank", "width=1200,height=800");
         } else {
-            showAccessDenied();
+            showAccessModal();
         }
     } else {
-        showGuestMessage();
+        // User not logged in
+        showLoginModal();
     }
 }
 
-function showCommunityChat() {
-    const modal = document.createElement("div");
-    modal.id = "community-chat-modal";
-    modal.innerHTML = `
-        <div class="chat-overlay" onclick="closeCommunityChat()"></div>
-        <div class="chat-modal">
-            <div class="chat-header">
-                <div class="chat-title">
-                    <h3>💬 Community Chat</h3>
-                    <div id="chat-status" class="chat-status">🔄 Connecting...</div>
-                </div>
-                <button onclick="closeCommunityChat()" class="chat-close">&times;</button>
-            </div>
-            <div class="chat-content">
-                <div id="loading-message" class="loading-message">
-                    <div class="spinner"></div>
-                    <p>Loading community chat...</p>
-                </div>
-                <iframe 
-                    id="chat-iframe" 
-                    src="https://element.io/app/" 
-                    style="display:none; width:100%; height:100%; border:none;">
-                </iframe>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    document.body.style.overflow = "hidden";
-    
-    const iframe = document.getElementById("chat-iframe");
-    const loadingMessage = document.getElementById("loading-message");
-    const statusElement = document.getElementById("chat-status");
-    
-    iframe.onload = function() {
-        statusElement.textContent = "✅ Connected";
-        statusElement.style.color = "#4CAF50";
-        loadingMessage.style.display = "none";
-        iframe.style.display = "block";
-    };
-}
+function showAccessModal() {
+    // Remove existing modal if any
+    const existingModal = document.getElementById("chat-access-modal");
+    if (existingModal) {
+        existingModal.remove();
+    }
 
-function showAccessDenied() {
     const modal = document.createElement("div");
-    modal.id = "access-denied-modal";
+    modal.id = "chat-access-modal";
+    modal.className = "chat-modal-overlay";
+    modal.onclick = function(e) {
+        if (e.target === modal) closeChatModal();
+    };
+
     modal.innerHTML = `
-        <div class="chat-overlay" onclick="closeAccessDenied()"></div>
-        <div class="access-denied-modal">
-            <div class="access-denied-header">
-                <h3>🔒 Community Chat Access</h3>
-                <button onclick="closeAccessDenied()" class="chat-close">&times;</button>
+        <div class="chat-access-modal">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span class="title-icon">🔒</span>
+                    <span>Chat Access Restricted</span>
+                </div>
+                <button class="modal-close" onclick="closeChatModal()">×</button>
             </div>
-            <div class="access-denied-body">
-                <div class="access-denied-icon">🎯</div>
-                <h4>Upgrade Your Access Level</h4>
-                <p>Community Chat is available to active members with special recognition.</p>
-                
-                <div class="allowed-groups-list">
-                    <h4>👥 Groups with Chat Access:</h4>
-                    <ul>
-                        <li>🛡️ Admin - Full access</li>
-                        <li>⚡ Moderators - Full access</li>
-                        <li>🌟 Recognised Members - Chat access</li>
-                    </ul>
+            <div class="modal-body">
+                <div class="access-info">
+                    <div class="info-icon">⛔</div>
+                    <p><strong>Thanks for being a member!</strong> Chat access is currently limited to specific groups.</p>
                 </div>
                 
-                <div class="upgrade-info">
-                    <h4>💎 How to become a Recognised Member:</h4>
-                    <div class="participation-tips">
-                        <ul>
-                            <li>📝 Create quality discussions and posts</li>
-                            <li>🤝 Help other community members</li>
-                            <li>💡 Share valuable insights and tips</li>
-                            <li>⭐ Maintain positive community engagement</li>
+                <div class="access-groups">
+                    <p><strong>Who can access the chat:</strong></p>
+                    <div class="group-list">
+                        <div class="group-item admin">
+                            <span class="group-icon">👑</span>
+                            <div class="group-info">
+                                <strong>Admin</strong>
+                                <small>Forum administrators</small>
+                            </div>
+                        </div>
+                        <div class="group-item mod">
+                            <span class="group-icon">🛡️</span>
+                            <div class="group-info">
+                                <strong>Mod</strong>
+                                <small>Forum moderators</small>
+                            </div>
+                        </div>
+                        <div class="group-item recognized">
+                            <span class="group-icon">⭐</span>
+                            <div class="group-info">
+                                <strong>Recognised member</strong>
+                                <small>Trusted community members</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="upgrade-section">
+                    <div class="upgrade-header">
+                        <span class="upgrade-icon">💡</span>
+                        <strong>Want to access the chat?</strong>
+                    </div>
+                    <p>Become more active in our community! Regular participation, helpful contributions, and positive engagement may lead to membership upgrades.</p>
+                    
+                    <div class="ways-to-recognize">
+                        <div class="ways-header">
+                            <span class="ways-icon">🌟</span>
+                            <strong>Ways to get recognized:</strong>
+                        </div>
+                        <ul class="ways-list">
+                            <li>
+                                <span class="way-icon">📝</span>
+                                Create valuable discussions
+                            </li>
+                            <li>
+                                <span class="way-icon">💬</span>
+                                Provide helpful replies
+                            </li>
+                            <li>
+                                <span class="way-icon">👍</span>
+                                Engage positively with others
+                            </li>
+                            <li>
+                                <span class="way-icon">🏆</span>
+                                Follow community guidelines
+                            </li>
                         </ul>
                     </div>
                 </div>
                 
                 <div class="action-buttons">
-                    <a href="/d/new" class="btn-primary">
-                        📝 Start Contributing
+                    <a href="/discussions" class="btn-primary">
+                        <span class="btn-icon">📝</span>
+                        Join Discussions
                     </a>
-                    <button onclick="closeAccessDenied()" class="btn-secondary">
-                        Got It
-                    </button>
-                </div>
-                
-                <div class="contact-info">
-                    <p>Questions? <a href="/u/moderator">Contact a moderator</a></p>
+                    <a href="/u" class="btn-secondary">
+                        <span class="btn-icon">👥</span>
+                        Browse Members
+                    </a>
                 </div>
             </div>
         </div>
@@ -236,32 +199,49 @@ function showAccessDenied() {
     document.body.style.overflow = "hidden";
 }
 
-function showGuestMessage() {
+function showLoginModal() {
+    // Remove existing modal if any
+    const existingModal = document.getElementById("chat-access-modal");
+    if (existingModal) {
+        existingModal.remove();
+    }
+
     const modal = document.createElement("div");
-    modal.id = "guest-access-modal";
+    modal.id = "chat-access-modal";
+    modal.className = "chat-modal-overlay";
+    modal.onclick = function(e) {
+        if (e.target === modal) closeChatModal();
+    };
+
     modal.innerHTML = `
-        <div class="chat-overlay" onclick="closeGuestModal()"></div>
-        <div class="access-denied-modal">
-            <div class="access-denied-header">
-                <h3>👋 Join Our Community!</h3>
-                <button onclick="closeGuestModal()" class="chat-close">&times;</button>
+        <div class="chat-access-modal">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span class="title-icon">👋</span>
+                    <span>Join Our Community!</span>
+                </div>
+                <button class="modal-close" onclick="closeChatModal()">×</button>
             </div>
-            <div class="access-denied-body">
-                <div class="guest-icon">🎯</div>
-                <h4>Ready to join live discussions?</h4>
-                <p>Create your free account to access our community features and work towards chat access!</p>
+            <div class="modal-body">
+                <div class="login-info">
+                    <div class="info-icon">🎯</div>
+                    <p><strong>Ready to join live discussions?</strong></p>
+                    <p>Create your free account or log in to access community features!</p>
+                </div>
                 
                 <div class="action-buttons">
                     <a href="/register" class="btn-primary">
-                        🚀 Create Account
+                        <span class="btn-icon">🚀</span>
+                        Create Account
                     </a>
                     <a href="/login" class="btn-secondary">
-                        🔑 Login
+                        <span class="btn-icon">🔑</span>
+                        Login
                     </a>
                 </div>
                 
-                <div class="contact-info">
-                    <p>Already have an account? <a href="/login">Sign in here</a></p>
+                <div class="help-text">
+                    <p>Already have an account? <a href="/login" class="login-link">Sign in here</a></p>
                 </div>
             </div>
         </div>
@@ -271,36 +251,18 @@ function showGuestMessage() {
     document.body.style.overflow = "hidden";
 }
 
-function closeCommunityChat() {
-    const modal = document.getElementById("community-chat-modal");
+function closeChatModal() {
+    const modal = document.getElementById("chat-access-modal");
     if (modal) {
         modal.remove();
         document.body.style.overflow = "";
     }
 }
 
-function closeAccessDenied() {
-    const modal = document.getElementById("access-denied-modal");
-    if (modal) {
-        modal.remove();
-        document.body.style.overflow = "";
-    }
-}
-
-function closeGuestModal() {
-    const modal = document.getElementById("guest-access-modal");
-    if (modal) {
-        modal.remove();
-        document.body.style.overflow = "";
-    }
-}
-
-// ESC key to close modals
+// Close modal on ESC key
 document.addEventListener("keydown", function(e) {
     if (e.key === "Escape") {
-        closeCommunityChat();
-        closeAccessDenied();
-        closeGuestModal();
+        closeChatModal();
     }
 });
 </script>';
@@ -309,260 +271,515 @@ document.addEventListener("keydown", function(e) {
     private function getChatStyles()
     {
         return '<style>
-/* === HEADER CHAT BUTTON === */
-.header-chat-wrapper {
-    display: flex !important;
-    align-items: center !important;
-    margin-right: 8px !important;
+/* === FOOTER CHAT LINK === */
+.chat-footer-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px 0;
+    margin-top: 20px;
+    border-top: 1px solid #e9ecef;
 }
 
-.header-chat-btn {
-    background: linear-gradient(135deg, #4CAF50, #45a049) !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 6px !important;
-    padding: 8px 16px !important;
-    font-size: 13px !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
-    cursor: pointer !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-    text-decoration: none !important;
-    box-shadow: 0 2px 4px rgba(76, 175, 80, 0.3) !important;
+.chat-footer-container.fixed-chat {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    z-index: 1000;
 }
 
-.header-chat-btn:hover {
-    background: linear-gradient(135deg, #45a049, #3d8b40) !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 4px 8px rgba(76, 175, 80, 0.4) !important;
-    color: white !important;
-    text-decoration: none !important;
+.chat-footer-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 }
 
-.header-chat-btn .Button-icon {
-    font-size: 14px !important;
-    margin: 0 !important;
+.chat-footer-link:hover {
+    background: linear-gradient(135deg, #45a049, #3d8b40);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+    color: white;
+    text-decoration: none;
 }
 
-.header-chat-btn .Button-label {
-    font-size: 13px !important;
-    font-weight: 600 !important;
+.chat-icon {
+    font-size: 16px;
 }
 
-/* === MOBILE DRAWER LINK === */
-.mobile-chat-item {
-    list-style: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-.mobile-chat-link {
-    display: flex !important;
-    align-items: center !important;
-    padding: 12px 16px !important;
-    color: #333 !important;
-    text-decoration: none !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
-    border-left: 3px solid transparent !important;
-}
-
-.mobile-chat-link:hover {
-    background: linear-gradient(90deg, rgba(76, 175, 80, 0.1), transparent) !important;
-    border-left-color: #4CAF50 !important;
-    color: #4CAF50 !important;
-    text-decoration: none !important;
-}
-
-.mobile-chat-link .icon {
-    margin-right: 12px !important;
-    font-size: 16px !important;
-    width: 20px !important;
-    text-align: center !important;
-}
-
-/* === FLOATING BUTTON === */
-.floating-chat-btn {
-    position: fixed !important;
-    bottom: 20px !important;
-    right: 20px !important;
-    z-index: 1000 !important;
-}
-
-.float-chat-button {
-    background: linear-gradient(135deg, #4CAF50, #45a049) !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 25px !important;
-    padding: 12px 20px !important;
-    font-size: 14px !important;
-    font-weight: 600 !important;
-    cursor: pointer !important;
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4) !important;
-    transition: all 0.3s ease !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-}
-
-.float-chat-button:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.5) !important;
-    background: linear-gradient(135deg, #45a049, #3d8b40) !important;
+.chat-text {
+    font-size: 14px;
+    font-weight: 600;
 }
 
 /* === MODAL STYLES === */
-.chat-overlay {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    background: rgba(0, 0, 0, 0.7) !important;
-    z-index: 9998 !important;
-    backdrop-filter: blur(4px) !important;
+.chat-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    padding: 20px;
+    box-sizing: border-box;
+    backdrop-filter: blur(4px);
 }
 
-.chat-modal,
-.access-denied-modal {
-    position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    width: 90% !important;
-    max-width: 900px !important;
-    height: 80% !important;
-    max-height: 600px !important;
-    background: white !important;
-    border-radius: 12px !important;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
-    z-index: 9999 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    animation: modalAppear 0.3s ease-out !important;
+.chat-access-modal {
+    background: white;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease-out;
 }
 
-@keyframes modalAppear {
+@keyframes modalSlideIn {
     from {
         opacity: 0;
-        transform: translate(-50%, -50%) scale(0.9);
+        transform: translateY(-50px) scale(0.95);
     }
     to {
         opacity: 1;
-        transform: translate(-50%, -50%) scale(1);
+        transform: translateY(0) scale(1);
     }
 }
 
-.chat-header,
-.access-denied-header {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    padding: 20px 25px !important;
-    border-bottom: 1px solid #e9ecef !important;
-    background: linear-gradient(135deg, #f8f9fa, #e9ecef) !important;
-    border-radius: 12px 12px 0 0 !important;
-    flex-shrink: 0 !important;
+/* === MODAL HEADER === */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px;
+    border-bottom: 1px solid #e9ecef;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-radius: 12px 12px 0 0;
 }
 
-.chat-title {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 5px !important;
+.modal-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #333;
 }
 
-.chat-header h3,
-.access-denied-header h3 {
-    margin: 0 !important;
-    font-size: 18px !important;
-    font-weight: 700 !important;
-    color: #333 !important;
+.title-icon {
+    font-size: 20px;
 }
 
-.chat-status {
-    font-size: 12px !important;
-    color: #666 !important;
-    font-weight: 600 !important;
+.modal-close {
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: transparent;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #666;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.3s ease;
 }
 
-.chat-close {
-    width: 40px !important;
-    height: 40px !important;
-    border: none !important;
-    background: transp[...]arent !important;
-    font-size: 24px !important;
-    font-weight: bold !important;
-    cursor: pointer !important;
-    color: #666 !important;
-    border-radius: 50% !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    transition: all 0.3s ease !important;
+.modal-close:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #333;
 }
 
-.chat-close:hover {
-    background: rgba(255, 255, 255, 0.2) !important;
-    color: #333 !important;
+/* === MODAL BODY === */
+.modal-body {
+    padding: 25px;
+}
+
+.access-info,
+.login-info {
+    text-align: center;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: linear-gradient(135deg, #fff5f5, #ffe8e8);
+    border-radius: 10px;
+    border-left: 4px solid #f56565;
+}
+
+.info-icon {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+
+.access-info p,
+.login-info p {
+    margin: 8px 0;
+    color: #333;
+    line-height: 1.5;
+}
+
+/* === ACCESS GROUPS === */
+.access-groups {
+    margin-bottom: 25px;
+}
+
+.access-groups > p {
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.group-list {
+    background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+    border-radius: 10px;
+    padding: 20px;
+    border-left: 4px solid #4CAF50;
+}
+
+.group-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(76, 175, 80, 0.1);
+}
+
+.group-item:last-child {
+    border-bottom: none;
+}
+
+.group-icon {
+    font-size: 18px;
+    width: 25px;
+    text-align: center;
+}
+
+.group-info strong {
+    display: block;
+    color: #2e7d32;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.group-info small {
+    color: #666;
+    font-size: 12px;
+}
+
+/* === UPGRADE SECTION === */
+.upgrade-section {
+    background: linear-gradient(135deg, #f3e5f5, #e8f5e8);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 25px;
+    border-left: 4px solid #9c27b0;
+}
+
+.upgrade-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    color: #7b1fa2;
+}
+
+.upgrade-icon {
+    font-size: 16px;
+}
+
+.upgrade-section > p {
+    color: #333;
+    line-height: 1.5;
+    margin-bottom: 15px;
+}
+
+.ways-to-recognize {
+    background: linear-gradient(135deg, #fff8e1, #fff3c4);
+    border-radius: 8px;
+    padding: 15px;
+    border-left: 3px solid #ff9800;
+}
+
+.ways-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: #e65100;
+    font-weight: 600;
+}
+
+.ways-icon {
+    font-size: 16px;
+}
+
+.ways-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.ways-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    color: #333;
+    font-size: 14px;
+}
+
+.way-icon {
+    font-size: 14px;
+    width: 20px;
+    text-align: center;
+}
+
+/* === ACTION BUTTONS === */
+.action-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.btn-primary,
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: none;
+    min-width: 140px;
+    justify-content: center;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #45a049, #3d8b40);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+    color: white;
+    text-decoration: none;
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #2196F3, #1976D2);
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: linear-gradient(135deg, #1976D2, #1565C0);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4);
+    color: white;
+    text-decoration: none;
+}
+
+.btn-icon {
+    font-size: 14px;
+}
+
+/* === HELP TEXT === */
+.help-text {
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+    border-top: 1px solid #e9ecef;
+    padding-top: 20px;
+}
+
+.login-link {
+    color: #4CAF50;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.login-link:hover {
+    text-decoration: underline;
 }
 
 /* === MOBILE RESPONSIVE === */
 @media (max-width: 768px) {
-    .header-chat-btn .Button-label {
-        display: none !important;
+    .chat-modal-overlay {
+        padding: 10px;
+        align-items: flex-start;
+        padding-top: 20px;
     }
     
-    .header-chat-btn {
-        padding: 8px 12px !important;
-        min-width: auto !important;
+    .chat-access-modal {
+        max-height: 95vh;
+        width: 100%;
+        margin: 0;
     }
     
-    .chat-modal,
-    .access-denied-modal {
-        width: 95% !important;
-        height: 90% !important;
-        max-height: none !important;
+    .modal-header {
+        padding: 15px 20px;
     }
     
-    .floating-chat-btn {
-        bottom: 15px !important;
-        right: 15px !important;
+    .modal-title {
+        font-size: 16px;
     }
     
-    .float-chat-button {
-        padding: 10px 16px !important;
-        font-size: 13px !important;
+    .modal-body {
+        padding: 20px 15px;
     }
     
-    .float-chat-button span {
-        display: none !important;
+    .action-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .btn-primary,
+    .btn-secondary {
+        width: 100%;
+        max-width: 280px;
+    }
+    
+    .chat-footer-container.fixed-chat {
+        bottom: 15px;
+        right: 15px;
+    }
+    
+    .chat-footer-link {
+        padding: 10px 18px;
+    }
+    
+    .chat-text {
+        display: none;
     }
 }
 
 @media (max-width: 480px) {
-    .header-chat-wrapper {
-        margin-right: 4px !important;
+    .chat-modal-overlay {
+        padding: 0;
+        align-items: stretch;
     }
     
-    .chat-modal,
-    .access-denied-modal {
-        width: 100% !important;
-        height: 100% !important;
-        border-radius: 0 !important;
-        max-width: none !important;
+    .chat-access-modal {
+        border-radius: 0;
+        height: 100vh;
+        max-height: none;
     }
     
-    .chat-header,
-    .access-denied-header {
-        padding: 15px 20px !important;
-        border-radius: 0 !important;
+    .modal-header {
+        border-radius: 0;
+        padding: 12px 15px;
     }
     
-    .floating-chat-btn {
-        bottom: 10px !important;
-        right: 10px !important;
+    .modal-body {
+        padding: 15px;
+    }
+    
+    .group-list,
+    .upgrade-section,
+    .ways-to-recognize {
+        padding: 15px;
+    }
+    
+    .chat-footer-container {
+        padding: 15px 0;
+    }
+    
+    .chat-footer-container.fixed-chat {
+        bottom: 10px;
+        right: 10px;
+    }
+}
+
+/* === DARK MODE SUPPORT === */
+@media (prefers-color-scheme: dark) {
+    .chat-access-modal {
+        background: #2d3748;
+        color: #e2e8f0;
+    }
+    
+    .modal-header {
+        background: linear-gradient(135deg, #374151, #4b5563);
+        border-bottom-color: #4a5568;
+    }
+    
+    .modal-title {
+        color: #f7fafc;
+    }
+    
+    .modal-close {
+        color: #a0aec0;
+    }
+    
+    .modal-close:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #f7fafc;
+    }
+    
+    .access-info,
+    .login-info {
+        background: linear-gradient(135deg, #4a3a5c, #5d4e75);
+        border-left-color: #f56565;
+    }
+    
+    .group-list {
+        background: linear-gradient(135deg, #2d5a3d, #3d6b4d);
+    }
+    
+    .upgrade-section {
+        background: linear-gradient(135deg, #4a3a5c, #5d4e75);
+    }
+    
+    .ways-to-recognize {
+        background: linear-gradient(135deg, #5d4e37, #6b5a42);
+    }
+    
+    .help-text {
+        border-top-color: #4a5568;
+        color: #a0aec0;
+    }
+}
+
+/* === ACCESSIBILITY === */
+@media (prefers-reduced-motion: reduce) {
+    .chat-access-modal {
+        animation: none;
+    }
+    
+    .chat-footer-link:hover,
+    .btn-primary:hover,
+    .btn-secondary:hover {
+        transform: none;
+    }
+}
+
+/* === PRINT STYLES === */
+@media print {
+    .chat-footer-container,
+    .chat-modal-overlay {
+        display: none !important;
     }
 }
 </style>';

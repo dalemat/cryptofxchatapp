@@ -1,10 +1,10 @@
 {
     "name": "cryptofxchatapp/flarum-chat-iframe",
-    "description": "Adds an iframe chat popup to Flarum with group-based access control and mobile responsive design",
-    "keywords": ["flarum", "extension", "chat", "iframe", "popup", "mobile"],
+    "description": "Adds an iframe chat popup to Flarum with group-based access control and mobile responsive design - Console configurable",
+    "keywords": ["flarum", "extension", "chat", "iframe", "popup", "mobile", "console"],
     "type": "flarum-extension",
     "license": "MIT",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "require": {
         "flarum/core": "^1.0"
     },
@@ -31,9 +31,5 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true,
-    "support": {
-        "issues": "https://github.com/cryptofxchatapp/flarum-chat-iframe/issues",
-        "source": "https://github.com/cryptofxchatapp/flarum-chat-iframe"
-    }
+    "prefer-stable": true
 }

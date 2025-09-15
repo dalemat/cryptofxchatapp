@@ -5,19 +5,28 @@ use Flarum\Extend;
 return [
     (new Extend\Frontend('forum'))
         ->content(function ($view) {
-            $settings = app('flarum.settings');
-            $chatUrl = $settings->get('cryptofxchatapp-chat-iframe.url', 'https://example.com/chat');
-            $allowedGroups = $settings->get('cryptofxchatapp-chat-iframe.allowed_groups', 'members');
-            $buttonText = $settings->get('cryptofxchatapp-chat-iframe.button_text', 'Chat');
-            $restrictionMessage = $settings->get('cryptofxchatapp-chat-iframe.restriction_message', 'This chat is restricted to members of specific groups.');
-            $joinInstructions = $settings->get('cryptofxchatapp-chat-iframe.join_instructions', 'Please contact an administrator to join the required group.');
+            try {
+                $settings = app('flarum.settings');
+                $chatUrl = $settings->get('cryptofxchatapp.chat_url', 'https://example.com/chat');
+                $allowedGroups = $settings->get('cryptofxchatapp.allowed_groups', 'members');
+                $buttonText = $settings->get('cryptofxchatapp.button_text', 'Chat');
+                $restrictionMessage = $settings->get('cryptofxchatapp.restriction_message', 'This chat is restricted to members of specific groups.');
+                $joinInstructions = $settings->get('cryptofxchatapp.join_instructions', 'Please contact an administrator to join the required group.');
+            } catch (Exception $e) {
+                // Fallback to defaults if settings fail
+                $chatUrl = 'https://example.com/chat';
+                $allowedGroups = 'members';
+                $buttonText = 'Chat';
+                $restrictionMessage = 'This chat is restricted to members of specific groups.';
+                $joinInstructions = 'Please contact an administrator to join the required group.';
+            }
             
             $view->addHeadString('
                 <style>
                     .ChatModal .Modal-content { width: 90vw; max-width: 800px; height: 80vh; max-height: 600px; }
                     .chat-iframe-container { width: 100%; height: 70vh; max-height: 500px; position: relative; }
                     .chat-iframe { width: 100%; height: 100%; border: none; border-radius: 4px; background: #f8f9fa; }
-                    .chat-button .Button { color: #fff !important; }
+                    .chat-button .Button { color: #fff !important; background: #0d6efd !important; border: 1px solid #0d6efd !important; }
                     .chat-button .Button:hover { opacity: 0.8; }
                     .mobile-chat-button .Button { width: 100%; text-align: left; padding: 12px 20px; color: inherit !important; }
                     .mobile-chat-button .Button:hover { background-color: rgba(0,0,0,0.1); }
@@ -27,11 +36,13 @@ return [
                     .chat-access-denied .required-groups { background: #fff; padding: 10px; border-radius: 4px; border: 1px solid #ddd; margin: 15px 0; font-family: monospace; }
                     .Alert--warning { background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
                     .Alert--warning .Alert-icon { color: #f39c12; }
+                    .AlertManager { position: fixed; top: 60px; right: 20px; z-index: 9999; max-width: 400px; }
                     @media (max-width: 768px) {
                         .ChatModal .Modal-content { width: 95vw; height: 85vh; margin: 20px auto; }
                         .chat-iframe-container { height: 75vh; }
                         .chat-button { display: none !important; }
                         .chat-access-denied { margin: 10px; padding: 30px 15px; }
+                        .AlertManager { right: 10px; max-width: calc(100vw - 20px); }
                     }
                     @media (max-width: 480px) {
                         .ChatModal .Modal-content { width: 98vw; height: 90vh; margin: 10px auto; }
@@ -51,18 +62,17 @@ return [
 
                     function showAlert(message, type) {
                         type = type || "warning";
-                        var alertsContainer = document.querySelector(".AlertManager") || document.querySelector(".alerts");
+                        var alertsContainer = document.querySelector(".AlertManager");
                         
                         if (!alertsContainer) {
                             alertsContainer = document.createElement("div");
-                            alertsContainer.className = "AlertManager alerts";
-                            alertsContainer.style.cssText = "position: fixed; top: 60px; right: 20px; z-index: 9999; max-width: 400px;";
+                            alertsContainer.className = "AlertManager";
                             document.body.appendChild(alertsContainer);
                         }
 
                         var alert = document.createElement("div");
                         alert.className = "Alert Alert--" + type + " Alert--dismissible";
-                        alert.style.cssText = "margin-bottom: 10px; padding: 15px 20px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); position: relative; cursor: pointer;";
+                        alert.style.cssText = "margin-bottom: 10px; padding: 15px 20px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; transition: opacity 0.3s ease;";
                         alert.innerHTML = \'<span class="Alert-icon fas fa-exclamation-triangle" style="margin-right: 10px;"></span>\' + message;
                         
                         alertsContainer.appendChild(alert);
@@ -70,7 +80,6 @@ return [
                         setTimeout(function() {
                             if (alert && alert.parentNode) {
                                 alert.style.opacity = "0";
-                                alert.style.transition = "opacity 0.3s ease";
                                 setTimeout(function() {
                                     if (alert && alert.parentNode) {
                                         alert.parentNode.removeChild(alert);
@@ -86,62 +95,6 @@ return [
                         };
                     }
 
-                    function ChatModal() {
-                        this.className = "ChatModal Modal--large";
-                        this.isDismissible = true;
-                    }
-
-                    ChatModal.prototype.view = function(hasAccess, userGroups) {
-                        if (!hasAccess) {
-                            var requiredGroups = CHAT_CONFIG.allowedGroups.split(",").map(function(g) { return g.trim(); }).join(", ");
-                            return [
-                                m("div", { className: "Modal-content" }, [
-                                    m("div", { className: "Modal-header" }, [
-                                        m("h3", { className: "App-titleControl App-titleControl--text" }, "Chat Access Restricted")
-                                    ]),
-                                    m("div", { className: "Modal-body" }, [
-                                        m("div", { className: "chat-access-denied" }, [
-                                            m("h3", [
-                                                m("i", { className: "fas fa-lock", style: "margin-right: 8px;" }),
-                                                "Access Denied"
-                                            ]),
-                                            m("p", CHAT_CONFIG.restrictionMessage),
-                                            m("div", { className: "required-groups" }, [
-                                                m("strong", "Required Groups: "), requiredGroups
-                                            ]),
-                                            m("p", { style: "margin-top: 20px;" }, CHAT_CONFIG.joinInstructions),
-                                            userGroups.length > 0 ? [
-                                                m("p", { style: "margin-top: 15px; font-size: 14px; color: #999;" }, [
-                                                    "Your current groups: ",
-                                                    m("span", { style: "font-family: monospace; background: #f0f0f0; padding: 2px 6px; border-radius: 3px;" }, userGroups.join(", "))
-                                                ])
-                                            ] : null
-                                        ])
-                                    ])
-                                ])
-                            ];
-                        }
-                        
-                        return [
-                            m("div", { className: "Modal-content" }, [
-                                m("div", { className: "Modal-header" }, [
-                                    m("h3", { className: "App-titleControl App-titleControl--text" }, CHAT_CONFIG.buttonText)
-                                ]),
-                                m("div", { className: "Modal-body" }, [
-                                    m("div", { className: "chat-iframe-container" }, [
-                                        m("iframe", {
-                                            src: CHAT_CONFIG.url,
-                                            className: "chat-iframe",
-                                            frameborder: "0",
-                                            allowfullscreen: true,
-                                            loading: "lazy"
-                                        })
-                                    ])
-                                ])
-                            ])
-                        ];
-                    };
-
                     function checkUserAccess() {
                         if (!window.app || !window.app.session || !window.app.session.user) {
                             return { hasAccess: false, userGroups: [] };
@@ -150,11 +103,15 @@ return [
                         var user = window.app.session.user;
                         var userGroups = [];
                         
-                        if (user.data && user.data.relationships && user.data.relationships.groups && user.data.relationships.groups.data) {
-                            userGroups = user.data.relationships.groups.data.map(function(group) {
-                                var groupData = window.app.store.getById("groups", group.id);
-                                return groupData ? groupData.data.attributes.nameSingular : null;
-                            }).filter(Boolean);
+                        try {
+                            if (user.data && user.data.relationships && user.data.relationships.groups && user.data.relationships.groups.data) {
+                                userGroups = user.data.relationships.groups.data.map(function(group) {
+                                    var groupData = window.app.store.getById("groups", group.id);
+                                    return groupData ? groupData.data.attributes.nameSingular : null;
+                                }).filter(Boolean);
+                            }
+                        } catch (e) {
+                            console.log("Error getting user groups:", e);
                         }
 
                         var allowedGroups = CHAT_CONFIG.allowedGroups.split(",").map(function(g) { return g.trim().toLowerCase(); });
@@ -170,30 +127,45 @@ return [
                         
                         if (!accessInfo.hasAccess) {
                             var requiredGroups = CHAT_CONFIG.allowedGroups.split(",").map(function(g) { return g.trim(); }).join(", ");
-                            showAlert("Chat access is restricted to: " + requiredGroups + ". " + CHAT_CONFIG.joinInstructions, "warning");
+                            showAlert("Chat access restricted to: " + requiredGroups + ". " + CHAT_CONFIG.joinInstructions, "warning");
+                            return;
                         }
 
-                        if (window.app && window.app.modal && window.app.modal.show) {
-                            var modal = new ChatModal();
-                            modal.content = function() {
-                                return modal.view(accessInfo.hasAccess, accessInfo.userGroups);
-                            };
-                            window.app.modal.show(modal);
-                        }
+                        // Create simple modal HTML
+                        var modal = document.createElement("div");
+                        modal.className = "Modal modal--shown";
+                        modal.style.cssText = "position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;";
+                        
+                        modal.innerHTML = \'<div class="Modal-content ChatModal" style="background: white; border-radius: 8px; max-width: 800px; width: 90vw; height: 80vh; max-height: 600px; position: relative;"><div style="padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;"><h3 style="margin: 0;">\' + CHAT_CONFIG.buttonText + \'</h3><button class="close-modal" style="background: none; border: none; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">&times;</button></div><div style="padding: 0; height: calc(100% - 80px);"><iframe src="\' + CHAT_CONFIG.url + \'" style="width: 100%; height: 100%; border: none; border-radius: 0 0 8px 8px;"></iframe></div></div>\';
+                        
+                        document.body.appendChild(modal);
+                        document.body.style.overflow = "hidden";
+                        
+                        modal.querySelector(".close-modal").onclick = function() {
+                            document.body.removeChild(modal);
+                            document.body.style.overflow = "";
+                        };
+                        
+                        modal.onclick = function(e) {
+                            if (e.target === modal) {
+                                document.body.removeChild(modal);
+                                document.body.style.overflow = "";
+                            }
+                        };
                     }
 
                     function addChatButton() {
                         setTimeout(function() {
-                            var existingButton = document.querySelector(".chat-button");
-                            var existingMobileButton = document.querySelector(".mobile-chat-button");
-                            
-                            if (existingButton || existingMobileButton) return;
+                            // Remove existing buttons
+                            var existingButtons = document.querySelectorAll(".chat-button, .mobile-chat-button");
+                            existingButtons.forEach(function(btn) { btn.remove(); });
 
                             // Desktop button
                             var headerPrimary = document.querySelector(".Header-primary");
                             if (headerPrimary) {
                                 var chatButton = document.createElement("div");
                                 chatButton.className = "chat-button";
+                                chatButton.style.cssText = "margin-left: 8px;";
                                 chatButton.innerHTML = \'<button class="Button Button--primary" type="button"><i class="fas fa-comments" style="margin-right: 6px;"></i>\' + CHAT_CONFIG.buttonText + \'</button>\';
                                 chatButton.onclick = openChatModal;
                                 
@@ -206,102 +178,33 @@ return [
                             }
 
                             // Mobile button
-                            var drawerContent = document.querySelector(".Drawer-content");
+                            var drawerContent = document.querySelector(".Drawer-content .Header-controls");
                             if (drawerContent) {
-                                var headerList = drawerContent.querySelector(".Header-controls") || drawerContent;
-                                if (headerList) {
-                                    var mobileChatButton = document.createElement("div");
-                                    mobileChatButton.className = "mobile-chat-button";
-                                    mobileChatButton.innerHTML = \'<button class="Button Button--block Button--icon" type="button"><i class="icon fas fa-comments Button-icon" style="margin-right: 8px;"></i><span class="Button-label">\' + CHAT_CONFIG.buttonText + \'</span></button>\';
-                                    mobileChatButton.onclick = openChatModal;
-                                    headerList.appendChild(mobileChatButton);
-                                }
+                                var mobileChatButton = document.createElement("div");
+                                mobileChatButton.className = "mobile-chat-button";
+                                mobileChatButton.innerHTML = \'<button class="Button Button--block" type="button"><i class="fas fa-comments" style="margin-right: 8px;"></i>\' + CHAT_CONFIG.buttonText + \'</button>\';
+                                mobileChatButton.onclick = openChatModal;
+                                drawerContent.appendChild(mobileChatButton);
                             }
                         }, 100);
                     }
 
-                    function initializeChat() {
-                        if (typeof m === "undefined") {
-                            setTimeout(initializeChat, 100);
-                            return;
-                        }
+                    // Initialize
+                    function init() {
                         addChatButton();
+                        // Re-add button on navigation
+                        setTimeout(addChatButton, 1000);
                     }
 
-                    // Initialize on page load and route changes
-                    document.addEventListener("DOMContentLoaded", initializeChat);
-                    
-                    // Handle route changes in SPA
-                    var originalPushState = history.pushState;
-                    history.pushState = function() {
-                        originalPushState.apply(history, arguments);
-                        setTimeout(addChatButton, 200);
-                    };
-                    
-                    window.addEventListener("popstate", function() {
-                        setTimeout(addChatButton, 200);
-                    });
+                    if (document.readyState === "loading") {
+                        document.addEventListener("DOMContentLoaded", init);
+                    } else {
+                        init();
+                    }
 
-                    initializeChat();
+                    // Handle SPA navigation
+                    setInterval(addChatButton, 2000);
                 })();
-                </script>
-            ');
-        }),
-
-    (new Extend\Frontend('admin'))
-        ->content(function ($view) {
-            $view->addHeadString('
-                <script>
-                app.initializers.add("cryptofxchatapp-chat-iframe-admin", function() {
-                    app.extensionData.for("cryptofxchatapp-flarum-chat-iframe")
-                        .registerSetting(function() {
-                            return [
-                                m(".Form-group", [
-                                    m("label", "Chat App URL"),
-                                    m("input.FormControl", {
-                                        type: "url",
-                                        bidi: this.setting("cryptofxchatapp-chat-iframe.url", "https://example.com/chat"),
-                                        placeholder: "https://example.com/chat"
-                                    }),
-                                    m(".helpText", "Enter the URL of your chat application")
-                                ]),
-                                m(".Form-group", [
-                                    m("label", "Allowed Groups"),
-                                    m("input.FormControl", {
-                                        type: "text",
-                                        bidi: this.setting("cryptofxchatapp-chat-iframe.allowed_groups", "members"),
-                                        placeholder: "members,moderators,admins"
-                                    }),
-                                    m(".helpText", "Comma-separated list of group names that can access the chat")
-                                ]),
-                                m(".Form-group", [
-                                    m("label", "Button Text"),
-                                    m("input.FormControl", {
-                                        type: "text",
-                                        bidi: this.setting("cryptofxchatapp-chat-iframe.button_text", "Chat"),
-                                        placeholder: "Chat"
-                                    }),
-                                    m(".helpText", "Text to display on the chat button")
-                                ]),
-                                m(".Form-group", [
-                                    m("label", "Restriction Message"),
-                                    m("textarea.FormControl", {
-                                        bidi: this.setting("cryptofxchatapp-chat-iframe.restriction_message", "This chat is restricted to members of specific groups."),
-                                        placeholder: "This chat is restricted to members of specific groups."
-                                    }),
-                                    m(".helpText", "Message shown to users without access")
-                                ]),
-                                m(".Form-group", [
-                                    m("label", "Join Instructions"),
-                                    m("textarea.FormControl", {
-                                        bidi: this.setting("cryptofxchatapp-chat-iframe.join_instructions", "Please contact an administrator to join the required group."),
-                                        placeholder: "Please contact an administrator to join the required group."
-                                    }),
-                                    m(".helpText", "Instructions on how users can get access to the chat")
-                                ])
-                            ];
-                        });
-                });
                 </script>
             ');
         }),

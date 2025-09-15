@@ -5,11 +5,12 @@ use Flarum\Extend;
 return [
     (new Extend\Frontend('forum'))
         ->content(function ($view) {
-            $chatUrl = app('flarum.settings')->get('cryptofxchatapp-chat-iframe.url', 'https://example.com/chat');
-            $allowedGroups = app('flarum.settings')->get('cryptofxchatapp-chat-iframe.allowed_groups', 'members');
-            $buttonText = app('flarum.settings')->get('cryptofxchatapp-chat-iframe.button_text', 'Chat');
-            $restrictionMessage = app('flarum.settings')->get('cryptofxchatapp-chat-iframe.restriction_message', 'This chat is restricted to members of specific groups.');
-            $joinInstructions = app('flarum.settings')->get('cryptofxchatapp-chat-iframe.join_instructions', 'Please contact an administrator to join the required group.');
+            $settings = app('flarum.settings');
+            $chatUrl = $settings->get('cryptofxchatapp-chat-iframe.url', 'https://example.com/chat');
+            $allowedGroups = $settings->get('cryptofxchatapp-chat-iframe.allowed_groups', 'members');
+            $buttonText = $settings->get('cryptofxchatapp-chat-iframe.button_text', 'Chat');
+            $restrictionMessage = $settings->get('cryptofxchatapp-chat-iframe.restriction_message', 'This chat is restricted to members of specific groups.');
+            $joinInstructions = $settings->get('cryptofxchatapp-chat-iframe.join_instructions', 'Please contact an administrator to join the required group.');
             
             $view->addHeadString('
                 <style>
@@ -247,10 +248,61 @@ return [
             ');
         }),
 
-    (new Extend\Settings)
-        ->default('cryptofxchatapp-chat-iframe.url', 'https://example.com/chat')
-        ->default('cryptofxchatapp-chat-iframe.allowed_groups', 'members')
-        ->default('cryptofxchatapp-chat-iframe.button_text', 'Chat')
-        ->default('cryptofxchatapp-chat-iframe.restriction_message', 'This chat is restricted to members of specific groups.')
-        ->default('cryptofxchatapp-chat-iframe.join_instructions', 'Please contact an administrator to join the required group.'),
+    (new Extend\Frontend('admin'))
+        ->content(function ($view) {
+            $view->addHeadString('
+                <script>
+                app.initializers.add("cryptofxchatapp-chat-iframe-admin", function() {
+                    app.extensionData.for("cryptofxchatapp-flarum-chat-iframe")
+                        .registerSetting(function() {
+                            return [
+                                m(".Form-group", [
+                                    m("label", "Chat App URL"),
+                                    m("input.FormControl", {
+                                        type: "url",
+                                        bidi: this.setting("cryptofxchatapp-chat-iframe.url", "https://example.com/chat"),
+                                        placeholder: "https://example.com/chat"
+                                    }),
+                                    m(".helpText", "Enter the URL of your chat application")
+                                ]),
+                                m(".Form-group", [
+                                    m("label", "Allowed Groups"),
+                                    m("input.FormControl", {
+                                        type: "text",
+                                        bidi: this.setting("cryptofxchatapp-chat-iframe.allowed_groups", "members"),
+                                        placeholder: "members,moderators,admins"
+                                    }),
+                                    m(".helpText", "Comma-separated list of group names that can access the chat")
+                                ]),
+                                m(".Form-group", [
+                                    m("label", "Button Text"),
+                                    m("input.FormControl", {
+                                        type: "text",
+                                        bidi: this.setting("cryptofxchatapp-chat-iframe.button_text", "Chat"),
+                                        placeholder: "Chat"
+                                    }),
+                                    m(".helpText", "Text to display on the chat button")
+                                ]),
+                                m(".Form-group", [
+                                    m("label", "Restriction Message"),
+                                    m("textarea.FormControl", {
+                                        bidi: this.setting("cryptofxchatapp-chat-iframe.restriction_message", "This chat is restricted to members of specific groups."),
+                                        placeholder: "This chat is restricted to members of specific groups."
+                                    }),
+                                    m(".helpText", "Message shown to users without access")
+                                ]),
+                                m(".Form-group", [
+                                    m("label", "Join Instructions"),
+                                    m("textarea.FormControl", {
+                                        bidi: this.setting("cryptofxchatapp-chat-iframe.join_instructions", "Please contact an administrator to join the required group."),
+                                        placeholder: "Please contact an administrator to join the required group."
+                                    }),
+                                    m(".helpText", "Instructions on how users can get access to the chat")
+                                ])
+                            ];
+                        });
+                });
+                </script>
+            ');
+        }),
 ];

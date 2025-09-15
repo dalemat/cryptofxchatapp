@@ -4,7 +4,7 @@
     "keywords": ["flarum", "extension", "chat", "iframe", "popup", "mobile"],
     "type": "flarum-extension",
     "license": "MIT",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "require": {
         "flarum/core": "^1.0"
     },
